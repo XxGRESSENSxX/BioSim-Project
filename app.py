@@ -8,7 +8,7 @@ CHAVE_GEMINI = st.secrets.get("CHAVE_GEMINI", "")
 
 if CHAVE_GEMINI:
     genai.configure(api_key=CHAVE_GEMINI)
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    model = genai.GenerativeModel('models/gemini-2.5-flash')
 else:
     st.error("Erro: Chave API não configurada nos Secrets do Streamlit.")
 

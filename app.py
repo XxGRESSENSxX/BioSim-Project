@@ -7,6 +7,8 @@ import time
 # --- CONFIGURAÇÕES ---
 CHAVE_GEMINI = "AIzaSyC9Sp2IitOOH5fxWFEQP6OYCC6pefv0EhY"
 genai.configure(api_key=CHAVE_GEMINI)
+
+# ATUALIZADO PARA 2.5-FLASH
 model = genai.GenerativeModel('models/gemini-2.5-flash')
 
 st.set_page_config(page_title="BioSim Pro", layout="wide", initial_sidebar_state="expanded")
@@ -26,10 +28,10 @@ st.markdown('''
     </style>
 ''', unsafe_allow_html=True)
 
-# --- 1. SIDEBAR (RESTAURADA INTEGRALMENTE) ---
+# --- 1. SIDEBAR (RESTAURADA) ---
 with st.sidebar:
     st.markdown('<div class="biosim-title">BioSim</div>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #64748B; margin-bottom: 30px;">Physiological Simulator v3.0</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color: #64748B; margin-bottom: 30px;">Physiological Simulator v3.2</p>', unsafe_allow_html=True)
     
     st.subheader("👤 Perfil Biológico")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
@@ -52,68 +54,14 @@ col_ondas, col_numeros = st.columns([2.5, 1])
 
 with col_ondas:
     st.markdown("### Telemetria Multiparamétrica")
-    plot_spot = st.empty() # Espaço que será atualizado
+    plot_spot = st.empty() 
 
 with col_numeros:
-    metrics_spot = st.empty() # Números que serão atualizados
+    metrics_spot = st.empty()
 
 st.divider()
 
-# --- 3. INTERVENÇÃO E LAUDO (RESTAURADOS) ---
+# --- 3. INTERVENÇÃO ---
 st.subheader("🧪 Simulador de Fisiologia Aplicada")
 c_in, c_bt = st.columns([4, 1])
 intervencao = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 1mg IV")
-btn_simular = c_bt.button("Executar Simulação")
-
-laudo_area = st.empty()
-
-# --- LÓGICA DO MONITOR CONTÍNUO ---
-if "t_start" not in st.session_state:
-    st.session_state.t_start = 0
-
-def iniciar_monitor():
-    t_base = st.session_state.t_start
-    
-    # Impacto inicial baseado na patologia
-    impacto = 0.5 if condicao == "Hipertiroidismo" else 0
-    
-    # Se o botão for clicado, gera o laudo e altera o impacto
-    if btn_simular and intervencao:
-        if btn_simular and intervencao and "laudo_gerado" not in st.session_state:
-        with laudo_area:
-            with st.spinner("Processando farmacodinâmica..."):
-                prompt = f"Laudo técnico: {sexo}, {idade}a, {peso}kg. BF: {fat}%. Patologia: {condicao}. Intervenção: {intervencao}. Analise vias de sinalização e desfecho."
-                response = model.generate_content(prompt)
-                st.markdown(f'<div class="report-box">{response.text}</div>', unsafe_allow_html=True)
-                st.session_state.laudo_gerado = True # Trava para não gerar mil vezes
-    while True:
-        t_base += 0.1
-        t = np.linspace(t_base, t_base + 5, 100)
-        
-        # Simulação das ondas
-        df = pd.DataFrame({
-            'Tempo': t,
-            'ECG': np.sin(t * 10) + np.random.normal(0, 0.05, 100),
-            'PLET': np.sin(t * 2.5) * 0.5 + 2,
-            'RESP': np.sin(t * 0.8) * 0.3 + 1,
-            'PAM': np.sin(t * 10) * 0.2 + 4
-        }).set_index('Tempo')
-
-        # Atualiza Gráfico
-        plot_spot.line_chart(df, color=["#00FF00", "#00FFFF", "#FFFF00", "#FFFFFF"], height=400)
-
-        # Atualiza Números
-        fc = int(75 + (impacto * 40) + np.random.randint(-1, 2))
-        spo2 = int(98 - (impacto * 4))
-        metrics_spot.markdown(f'''
-            <div class="monitor-panel">
-                <div class="metric-group" style="color: #00FF00;"><div class="metric-label">ECG / FC</div><div class="metric-value">{fc}</div></div>
-                <div class="metric-group" style="color: #00FFFF;"><div class="metric-label">SpO2 %</div><div class="metric-value">{spo2}</div></div>
-                <div class="metric-group" style="color: #FFFF00;"><div class="metric-label">RESP</div><div class="metric-value">18</div></div>
-                <div class="metric-group" style="color: #FFFFFF;"><div class="metric-label">PANI mmHg</div><div class="metric-value" style="font-size: 40px;">120/80</div></div>
-            </div>
-        ''', unsafe_allow_html=True)
-        
-        time.sleep(0.1)
-
-iniciar_monitor()

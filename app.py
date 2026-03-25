@@ -15,13 +15,13 @@ else:
 
 st.set_page_config(page_title="BioSim Professional", layout="wide")
 
-# --- 2. ESTADO DO SISTEMA ---
+# --- 2. ESTADO DO SISTEMA (PERSISTÊNCIA DOS DADOS) ---
 if 'sinais' not in st.session_state:
     st.session_state.sinais = {"fc": 75, "sp": 98, "resp": 16, "pam": 90}
 if 'ultimo_resultado' not in st.session_state:
     st.session_state.ultimo_resultado = ""
 
-# --- 3. CSS ---
+# --- 3. CSS (VISUAL LIMPO E LÚDICO) ---
 st.markdown('''
     <style>
     .main { background-color: #05070A; }
@@ -33,13 +33,11 @@ st.markdown('''
         border-radius: 8px; 
         color: #F8FAFC; 
         margin-top: 20px;
-        font-size: 16px;
-        line-height: 1.6;
     }
     </style>
 ''', unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (RESTAURADA COM MASSA MAGRA) ---
+# --- 4. SIDEBAR (PERFIL COMPLETO) ---
 with st.sidebar:
     st.markdown('## BioSim Pro')
     with st.expander("👤 PERFIL BIOLÓGICO", expanded=True):
@@ -48,7 +46,7 @@ with st.sidebar:
         peso = st.number_input("Massa (kg)", 1.0, 300.0, 65.0)
         altura = st.number_input("Estatura (m)", 0.5, 2.5, 1.70)
         gordura = st.slider("Gordura (BF %)", 5, 50, 22)
-        massa_magra = st.slider("Massa Magra (%)", 10, 90, 40) # RESTAURADO
+        massa_magra = st.slider("Massa Magra (%)", 10, 90, 40) # MANTIDO
     
     st.divider()
     st.subheader("📋 HISTÓRICO CLÍNICO")
@@ -72,17 +70,17 @@ with m4:
     st.metric("Saturação O2", f"{st.session_state.sinais['sp']} %")
     st.progress(st.session_state.sinais['sp'] / 100)
 
-# Gráfico de Referência
+# Gráfico de Ondas (Sincronizado com os sinais atuais)
 t = np.linspace(0, 2, 200)
-ecg = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.02, 200)
-st.line_chart(ecg, height=150)
+onda = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.02, 200)
+st.line_chart(onda, height=150)
 
 st.divider()
 
-# --- 6. INTERVENÇÃO E RESULTADO ---
+# --- 6. INTERVENÇÃO ---
 st.subheader("🧪 Intervenção Terapêutica")
 c_in, c_bt = st.columns([4, 1])
-intervencao = c_in.text_input("Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
+intervencao = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
 btn_simular = c_bt.button("EXECUTAR SIMULAÇÃO")
 
 def extrair_dados(texto):
@@ -93,21 +91,22 @@ def extrair_dados(texto):
     return None
 
 if btn_simular and intervencao:
-    with st.spinner("Analisando Resposta Bioquímica..."):
-        prompt = (f"Paciente {sexo}, {idade}a, {peso}kg, {altura}m. Massa Magra: {massa_magra}%. "
-                  f"Estilo: {estilo}. Patologia: {patologias}. Intervenção: {intervencao}. "
-                  f"Explique a farmacodinâmica e termine com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+    with st.spinner("Simulando Resposta..."):
+        # Prompt técnico que considera Massa Magra e Perfil
+        p = (f"Simulação Fisiológica: {sexo}, {idade}a, {peso}kg, {altura}m. Massa Magra: {massa_magra}%. "
+             f"Estilo: {estilo}. Patologias: {patologias}. Intervenção: {intervencao}. "
+             f"Descreva os efeitos clínicos e finalize com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
         try:
-            res = model.generate_content(prompt)
-            st.session_state.ultimo_resultado = res.text # SALVA O TEXTO
+            res = model.generate_content(p)
+            st.session_state.ultimo_resultado = res.text
             novos = extrair_dados(res.text)
             if novos:
                 st.session_state.sinais.update(novos)
-            st.rerun()
-        except:
-            st.error("Erro na simulação.")
+            st.rerun() # Atualiza o monitor imediatamente
+        except Exception as e:
+            st.error("Erro na comunicação. Aguarde 60 segundos e tente novamente.")
 
-# EXIBIÇÃO DO RESULTADO (AQUI É ONDE APARECE O TEXTO)
+# EXIBIÇÃO DO RESULTADO ABAIXO DA INTERVENÇÃO
 if st.session_state.ultimo_resultado:
     st.markdown("### 📝 Resultado da Intervenção")
     st.markdown(f'<div class="resultado-clinico">{st.session_state.ultimo_resultado}</div>', unsafe_allow_html=True)

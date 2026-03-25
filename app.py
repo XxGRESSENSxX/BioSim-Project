@@ -26,7 +26,7 @@ st.markdown('''
     </style>
 ''', unsafe_allow_html=True)
 
-# --- 3. SIDEBAR (ENTRADAS DE DADOS REESTABELECIDAS) ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.markdown('<div class="biosim-title">BioSim</div>', unsafe_allow_html=True)
     st.markdown('<p style="color: #64748B; margin-bottom: 30px;">Physiological Simulator v3.2</p>', unsafe_allow_html=True)
@@ -44,7 +44,6 @@ with st.sidebar:
     
     st.divider()
     st.subheader("📋 Histórico e Estilo")
-    # AQUI VOLTARAM OS FATORES QUE TINHAM SUMIDO:
     estilo = st.multiselect("Fatores de Estilo de Vida", ["Sedentário", "Ativo", "Atleta Elite", "Tabagista", "Alcoolista"])
     condicao = st.selectbox("Patologia Preexistente", ["Nenhuma", "Diabetes Tipo 1", "Diabetes Tipo 2", "HAS Estágio II", "Hipertiroidismo", "Hipotiroidismo"])
 
@@ -68,16 +67,16 @@ btn_simular = c_bt.button("Simular Resposta")
 
 laudo_area = st.empty()
 
-# --- 6. FUNÇÃO DO MONITOR (COM RITMO ESTÁVEL) ---
+# --- 6. FUNÇÃO DO MONITOR (COM TEMPO AMPLIADO) ---
 def rodar_monitor():
     t_base = 0
-    fc_atual = 75 # Começa estável
+    fc_atual = 75 
     
     while True:
-        t_base += 0.1
+        t_base += 0.05 # Reduzi o passo do tempo para a curva ser mais suave
         t = np.linspace(t_base, t_base + 5, 100)
         
-        # Logica do Gemini (Sem Arritmia de chamadas)
+        # Logica do Gemini
         if btn_simular and intervencao:
             if "key" not in st.session_state or st.session_state.key != intervencao:
                 with laudo_area:
@@ -87,33 +86,34 @@ def rodar_monitor():
                         st.markdown(f'<div class="report-box">{res.text}</div>', unsafe_allow_html=True)
                         st.session_state.key = intervencao
 
-        # Atualiza Gráfico
+        # Atualiza Gráfico - Ruído reduzido para ondas mais limpas
         df = pd.DataFrame({
             'Tempo': t,
-            'ECG': np.sin(t * 10) + np.random.normal(0, 0.03, 100),
-            'PLET': np.sin(t * 2.5) * 0.5 + 2,
-            'RESP': np.sin(t * 0.8) * 0.3 + 1,
-            'PAM': np.sin(t * 10) * 0.2 + 4
+            'ECG': np.sin(t * 8) + np.random.normal(0, 0.02, 100),
+            'PLET': np.sin(t * 2.0) * 0.5 + 2,
+            'RESP': np.sin(t * 0.6) * 0.3 + 1,
+            'PAM': np.sin(t * 8) * 0.15 + 4
         }).set_index('Tempo')
+        
         plot_spot.line_chart(df, color=["#00FF00", "#00FFFF", "#FFFF00", "#FFFFFF"], height=400)
 
-        # Atualiza Números de forma suave (Fisiológica)
-        # O batimento só muda 1 unidade por vez, raramente
-        if np.random.random() > 0.8: 
+        # Atualiza Números de forma bem mais lenta
+        # Só tem 5% de chance de mudar a FC a cada ciclo de 0.3s
+        if np.random.random() > 0.95: 
             fc_atual += np.random.choice([-1, 0, 1])
-            fc_atual = max(60, min(180, fc_atual)) # Limites de segurança
+            fc_atual = max(60, min(100, fc_atual)) 
 
         metrics_spot.markdown(f'''
             <div class="monitor-panel">
                 <div class="metric-group" style="color: #00FF00;"><div class="metric-label">ECG / FC</div><div class="metric-value">{fc_atual}</div></div>
                 <div class="metric-group" style="color: #00FFFF;"><div class="metric-label">SpO2 %</div><div class="metric-value">98</div></div>
-                <div class="metric-group" style="color: #FFFF00;"><div class="metric-label">RESP</div><div class="metric-value">18</div></div>
-                <div class="metric-group" style="color: #FFFFFF;"><div class="metric-label">TEMP ºC</div><div class="metric-value" style="font-size: 35px;">37.2</div></div>
+                <div class="metric-group" style="color: #FFFF00;"><div class="metric-label">RESP</div><div class="metric-value">16</div></div>
+                <div class="metric-group" style="color: #FFFFFF;"><div class="metric-label">TEMP ºC</div><div class="metric-value" style="font-size: 35px;">36.8</div></div>
             </div>
         ''', unsafe_allow_html=True)
         
-        # Velocidade do monitor controlada
-        time.sleep(0.15) 
+        # ESPAÇO DE TEMPO AUMENTADO AQUI (de 0.15 para 0.30)
+        time.sleep(0.3) 
 
 # --- 7. EXECUÇÃO ---
 rodar_monitor()

@@ -6,16 +6,17 @@ import time
 
 # --- 1. CONFIGURAÇÕES SEGURAS (SECRETS) ---
 try:
-    # Puxa a chave que você salvou no painel do Streamlit Cloud
-    CHAVE_GEMINI = st.secrets["CHAVE_GEMINI"]
-    genai.configure(api_key=CHAVE_GEMINI)
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    # Ele busca no "cofre" que você acabou de configurar
+    if "CHAVE_GEMINI" in st.secrets:
+        CHAVE_GEMINI = st.secrets["CHAVE_GEMINI"]
+        genai.configure(api_key=CHAVE_GEMINI)
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
+    else:
+        st.error("Chave não encontrada no painel de Secrets.")
+        st.stop()
 except Exception as e:
-    st.error("⚠️ Chave API não configurada nos Secrets do Streamlit.")
-    st.info("Vá em Settings -> Secrets e adicione: CHAVE_GEMINI = 'sua_chave'")
+    st.error(f"Erro ao carregar a chave: {e}")
     st.stop()
-
-st.set_page_config(page_title="BioSim Pro", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. DESIGN (CSS) ---
 st.markdown('''

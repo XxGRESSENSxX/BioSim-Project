@@ -1,15 +1,16 @@
 import streamlit as st
 import google.generativeai as genai
-import pandas as pd
-import numpy as np
-import time
+# ... outros imports ...
 
-# --- 1. CONFIGURAÇÕES ---
-CHAVE_GEMINI = "AIzaSyC9Sp2IitOOH5fxWFEQP6OYCC6pefv0EhY"
-genai.configure(api_key=CHAVE_GEMINI)
-model = genai.GenerativeModel('models/gemini-2.5-flash')
+# --- 1. CONFIGURAÇÕES SEGURAS ---
+# Tenta pegar a chave dos Secrets do Streamlit, se não achar, usa uma string vazia
+CHAVE_GEMINI = st.secrets.get("CHAVE_GEMINI", "")
 
-st.set_page_config(page_title="BioSim Pro", layout="wide", initial_sidebar_state="expanded")
+if CHAVE_GEMINI:
+    genai.configure(api_key=CHAVE_GEMINI)
+    model = genai.GenerativeModel('models/gemini-1.5-flash')
+else:
+    st.error("Erro: Chave API não configurada nos Secrets do Streamlit.")
 
 # --- 2. DESIGN (CSS) ---
 st.markdown('''

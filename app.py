@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import re
 
-# --- 1. CONFIGURAÇÃO (FIXADO NA VERSÃO 2.5) ---
+# --- 1. CONFIGURAÇÃO (FIXADO NA 2.5) ---
 CHAVE_API = st.secrets.get("CHAVE_GEMINI", "")
 if CHAVE_API:
     genai.configure(api_key=CHAVE_API)
@@ -18,67 +18,68 @@ st.set_page_config(page_title="BioSim Professional", layout="wide")
 # --- 2. ESTADO DO SISTEMA ---
 if 'sinais' not in st.session_state:
     st.session_state.sinais = {"fc": 75, "sp": 98, "resp": 16, "pam": 90}
-if 'historico_acoes' not in st.session_state:
-    st.session_state.historico_acoes = []
+if 'ultimo_resultado' not in st.session_state:
+    st.session_state.ultimo_resultado = ""
 
-# --- 3. CSS PARA INTERFACE MÉDICA LÚDICA ---
+# --- 3. CSS ---
 st.markdown('''
     <style>
     .main { background-color: #05070A; }
     .stMetric { background-color: #0F172A; padding: 15px; border-radius: 10px; border: 1px solid #1E293B; }
-    .biosim-header { font-size: 42px; font-weight: 800; color: #F8FAFC; margin-bottom: 20px; }
-    .status-card { border-left: 5px solid #2563EB; background: #0F172A; padding: 20px; border-radius: 5px; }
+    .resultado-clinico { 
+        background-color: #0B1120; 
+        padding: 25px; 
+        border-left: 5px solid #2563EB; 
+        border-radius: 8px; 
+        color: #F8FAFC; 
+        margin-top: 20px;
+        font-size: 16px;
+        line-height: 1.6;
+    }
     </style>
 ''', unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (PERFIL COMPLETO) ---
+# --- 4. SIDEBAR (RESTAURADA COM MASSA MAGRA) ---
 with st.sidebar:
-    st.markdown('<div style="font-size:30px; font-weight:bold;">BioSim Pro</div>', unsafe_allow_html=True)
-    
+    st.markdown('## BioSim Pro')
     with st.expander("👤 PERFIL BIOLÓGICO", expanded=True):
         sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
         idade = st.number_input("Idade", 1, 110, 24)
         peso = st.number_input("Massa (kg)", 1.0, 300.0, 65.0)
         altura = st.number_input("Estatura (m)", 0.5, 2.5, 1.70)
         gordura = st.slider("Gordura (BF %)", 5, 50, 22)
+        massa_magra = st.slider("Massa Magra (%)", 10, 90, 40) # RESTAURADO
     
     st.divider()
     st.subheader("📋 HISTÓRICO CLÍNICO")
-    estilo = st.text_input("Estilo de Vida:", placeholder="Ex: Atleta, Sedentário...")
+    estilo = st.text_input("Estilo de Vida:", placeholder="Ex: Atleta, fumante...")
     patologias = st.text_input("Comorbidades:", placeholder="Ex: ICC, Diabetes...")
 
-# --- 5. PAINEL DE SINAIS VITAIS (LÚDICO E LEVE) ---
-st.markdown('<div class="biosim-header">Painel de Monitoramento Dinâmico</div>', unsafe_allow_html=True)
+# --- 5. PAINEL DE MONITORAMENTO ---
+st.title("Monitor de Fisiologia Aplicada")
 
 m1, m2, m3, m4 = st.columns(4)
-
-# Renderização das métricas baseadas no estado atual
 with m1:
-    st.metric("Frequência Cardíaca", f"{st.session_state.sinais['fc']} BPM", delta=None, delta_color="normal")
-    st.progress(min(st.session_state.sinais['fc'] / 200, 1.0)) # Barra visual
-
+    st.metric("Frequência Cardíaca", f"{st.session_state.sinais['fc']} BPM")
+    st.progress(min(st.session_state.sinais['fc'] / 200, 1.0))
 with m2:
     st.metric("Frequência Resp.", f"{st.session_state.sinais['resp']} MPM")
     st.progress(min(st.session_state.sinais['resp'] / 40, 1.0))
-
 with m3:
     st.metric("Pressão Arterial (PAM)", f"{st.session_state.sinais['pam']} mmHg")
     st.progress(min(st.session_state.sinais['pam'] / 180, 1.0))
-
 with m4:
     st.metric("Saturação O2", f"{st.session_state.sinais['sp']} %")
     st.progress(st.session_state.sinais['sp'] / 100)
 
-# --- 6. GRÁFICO DE TENDÊNCIA (ESTÁTICO, NÃO PESA) ---
-# Em vez de mover, ele mostra a "forma da onda" atual
+# Gráfico de Referência
 t = np.linspace(0, 2, 200)
-ecg_shape = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.05, 200)
-st.line_chart(ecg_shape, height=150, use_container_width=True)
-st.caption("Traçado Eletrocardiográfico de Referência")
+ecg = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.02, 200)
+st.line_chart(ecg, height=150)
 
 st.divider()
 
-# --- 7. SIMULAÇÃO E LÓGICA ---
+# --- 6. INTERVENÇÃO E RESULTADO ---
 st.subheader("🧪 Intervenção Terapêutica")
 c_in, c_bt = st.columns([4, 1])
 intervencao = c_in.text_input("Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
@@ -92,22 +93,21 @@ def extrair_dados(texto):
     return None
 
 if btn_simular and intervencao:
-    with st.spinner("Analisando Cascata Fisiológica..."):
-        prompt = f"Paciente {sexo}, {idade}a, {peso}kg. Estilo: {estilo}. Patologia: {patologias}. Intervenção: {intervencao}. Descreva o efeito clínico e termine OBRIGATORIAMENTE com: [FC:X, RESP:Y, PAM:Z, SPO2:W]"
+    with st.spinner("Analisando Resposta Bioquímica..."):
+        prompt = (f"Paciente {sexo}, {idade}a, {peso}kg, {altura}m. Massa Magra: {massa_magra}%. "
+                  f"Estilo: {estilo}. Patologia: {patologias}. Intervenção: {intervencao}. "
+                  f"Explique a farmacodinâmica e termine com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
         try:
             res = model.generate_content(prompt)
-            novos_sinais = extrair_dados(res.text)
-            
-            if novos_sinais:
-                st.session_state.sinais.update(novos_sinais)
-                st.session_state.historico_acoes.insert(0, res.text) # Guarda o laudo
-                st.rerun() # Atualiza a tela com os novos números
+            st.session_state.ultimo_resultado = res.text # SALVA O TEXTO
+            novos = extrair_dados(res.text)
+            if novos:
+                st.session_state.sinais.update(novos)
+            st.rerun()
         except:
-            st.error("Falha na simulação. Tente novamente.")
+            st.error("Erro na simulação.")
 
-# Exibição do histórico de laudos
-if st.session_state.historico_acoes:
-    st.markdown("### 📝 Relatório de Evolução")
-    for laudo in st.session_state.historico_acoes:
-        st.markdown(f'<div class="status-card">{laudo}</div>', unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+# EXIBIÇÃO DO RESULTADO (AQUI É ONDE APARECE O TEXTO)
+if st.session_state.ultimo_resultado:
+    st.markdown("### 📝 Resultado da Intervenção")
+    st.markdown(f'<div class="resultado-clinico">{st.session_state.ultimo_resultado}</div>', unsafe_allow_html=True)

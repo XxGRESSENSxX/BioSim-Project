@@ -7,7 +7,7 @@ import time
 # --- CONFIGURAÇÕES ---
 CHAVE_GEMINI = "AIzaSyC9Sp2IitOOH5fxWFEQP6OYCC6pefv0EhY"
 genai.configure(api_key=CHAVE_GEMINI)
-model = genai.GenerativeModel('gemini-2.5-flash')
+model = genai.GenerativeModel('models/gemini-3-flash')
 
 st.set_page_config(page_title="BioSim Pro", layout="wide", initial_sidebar_state="expanded")
 

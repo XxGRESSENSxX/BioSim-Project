@@ -79,13 +79,13 @@ def iniciar_monitor():
     
     # Se o botão for clicado, gera o laudo e altera o impacto
     if btn_simular and intervencao:
+        if btn_simular and intervencao and "laudo_gerado" not in st.session_state:
         with laudo_area:
             with st.spinner("Processando farmacodinâmica..."):
                 prompt = f"Laudo técnico: {sexo}, {idade}a, {peso}kg. BF: {fat}%. Patologia: {condicao}. Intervenção: {intervencao}. Analise vias de sinalização e desfecho."
                 response = model.generate_content(prompt)
                 st.markdown(f'<div class="report-box">{response.text}</div>', unsafe_allow_html=True)
-        impacto = 0.8 # Aumenta a FC visualmente na simulação
-
+                st.session_state.laudo_gerado = True # Trava para não gerar mil vezes
     while True:
         t_base += 0.1
         t = np.linspace(t_base, t_base + 5, 100)

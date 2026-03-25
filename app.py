@@ -26,7 +26,7 @@ st.markdown('''
     </style>
 ''', unsafe_allow_html=True)
 
-# --- 3. SIDEBAR (ENTRADAS DE DADOS) ---
+# --- 3. SIDEBAR (ENTRADAS DE DADOS REESTABELECIDAS) ---
 with st.sidebar:
     st.markdown('<div class="biosim-title">BioSim</div>', unsafe_allow_html=True)
     st.markdown('<p style="color: #64748B; margin-bottom: 30px;">Physiological Simulator v3.2</p>', unsafe_allow_html=True)
@@ -43,6 +43,9 @@ with st.sidebar:
     musculo = st.slider("Massa Magra (%)", 20, 70, 40)
     
     st.divider()
+    st.subheader("📋 Histórico e Estilo")
+    # AQUI VOLTARAM OS FATORES QUE TINHAM SUMIDO:
+    estilo = st.multiselect("Fatores de Estilo de Vida", ["Sedentário", "Ativo", "Atleta Elite", "Tabagista", "Alcoolista"])
     condicao = st.selectbox("Patologia Preexistente", ["Nenhuma", "Diabetes Tipo 1", "Diabetes Tipo 2", "HAS Estágio II", "Hipertiroidismo", "Hipotiroidismo"])
 
 # --- 4. LAYOUT DO MONITOR ---
@@ -57,7 +60,7 @@ with col_numeros:
 
 st.divider()
 
-# --- 5. INTERVENÇÃO (PRECISA VIR ANTES DA FUNÇÃO DO MONITOR) ---
+# --- 5. INTERVENÇÃO ---
 st.subheader("🧪 Simulador de Fisiologia Aplicada")
 c_in, c_bt = st.columns([4, 1])
 intervencao = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 1mg IV")
@@ -65,19 +68,21 @@ btn_simular = c_bt.button("Simular Resposta")
 
 laudo_area = st.empty()
 
-# --- 6. A FUNÇÃO DO MONITOR (O LOOP) ---
+# --- 6. FUNÇÃO DO MONITOR (COM RITMO ESTÁVEL) ---
 def rodar_monitor():
     t_base = 0
+    fc_atual = 75 # Começa estável
+    
     while True:
         t_base += 0.1
         t = np.linspace(t_base, t_base + 5, 100)
         
-        # Logica do Gemini
+        # Logica do Gemini (Sem Arritmia de chamadas)
         if btn_simular and intervencao:
             if "key" not in st.session_state or st.session_state.key != intervencao:
                 with laudo_area:
                     with st.spinner("Analisando farmacodinâmica..."):
-                        p = f"Paciente {sexo}, {idade}a, {peso}kg. Condição: {condicao}. Droga: {intervencao}. Laudo técnico:"
+                        p = f"Paciente {sexo}, {idade}a, {peso}kg. Condição: {condicao}. Fatores: {estilo}. Droga: {intervencao}. Laudo técnico:"
                         res = model.generate_content(p)
                         st.markdown(f'<div class="report-box">{res.text}</div>', unsafe_allow_html=True)
                         st.session_state.key = intervencao
@@ -85,23 +90,30 @@ def rodar_monitor():
         # Atualiza Gráfico
         df = pd.DataFrame({
             'Tempo': t,
-            'ECG': np.sin(t * 10) + np.random.normal(0, 0.05, 100),
+            'ECG': np.sin(t * 10) + np.random.normal(0, 0.03, 100),
             'PLET': np.sin(t * 2.5) * 0.5 + 2,
             'RESP': np.sin(t * 0.8) * 0.3 + 1,
             'PAM': np.sin(t * 10) * 0.2 + 4
         }).set_index('Tempo')
         plot_spot.line_chart(df, color=["#00FF00", "#00FFFF", "#FFFF00", "#FFFFFF"], height=400)
 
-        # Atualiza Números
+        # Atualiza Números de forma suave (Fisiológica)
+        # O batimento só muda 1 unidade por vez, raramente
+        if np.random.random() > 0.8: 
+            fc_atual += np.random.choice([-1, 0, 1])
+            fc_atual = max(60, min(180, fc_atual)) # Limites de segurança
+
         metrics_spot.markdown(f'''
             <div class="monitor-panel">
-                <div class="metric-group" style="color: #00FF00;"><div class="metric-label">ECG / FC</div><div class="metric-value">{int(75 + np.random.randint(-2,3))}</div></div>
+                <div class="metric-group" style="color: #00FF00;"><div class="metric-label">ECG / FC</div><div class="metric-value">{fc_atual}</div></div>
                 <div class="metric-group" style="color: #00FFFF;"><div class="metric-label">SpO2 %</div><div class="metric-value">98</div></div>
                 <div class="metric-group" style="color: #FFFF00;"><div class="metric-label">RESP</div><div class="metric-value">18</div></div>
                 <div class="metric-group" style="color: #FFFFFF;"><div class="metric-label">TEMP ºC</div><div class="metric-value" style="font-size: 35px;">37.2</div></div>
             </div>
         ''', unsafe_allow_html=True)
-        time.sleep(0.1)
+        
+        # Velocidade do monitor controlada
+        time.sleep(0.15) 
 
-# --- 7. EXECUÇÃO (ÚLTIMA LINHA!) ---
+# --- 7. EXECUÇÃO ---
 rodar_monitor()

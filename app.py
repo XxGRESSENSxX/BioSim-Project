@@ -71,7 +71,7 @@ with st.sidebar:
     tags_pato = st.multiselect("Patologias Ativas:", options=st.session_state.opcoes_pato, default=st.session_state.opcoes_pato)
 
 # --- 6. PAINEL DE TELEMETRIA ---
-st.title("Monitor Multiparamétrico BioSim (Online)")
+st.title("Monitor Multiparamétrico BioSim")
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("FC (BPM)", st.session_state.sinais['fc'])

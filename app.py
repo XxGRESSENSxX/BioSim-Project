@@ -3,43 +3,51 @@ import google.generativeai as genai
 import numpy as np
 import re
 
-# --- 1. CONFIGURAÇÃO ---
+# --- 1. CONFIGURAÇÃO DA API (ONLINE) ---
 CHAVE_API = st.secrets.get("CHAVE_GEMINI", "")
 if CHAVE_API:
     genai.configure(api_key=CHAVE_API)
     model = genai.GenerativeModel('gemini-1.5-flash') 
 else:
-    st.error("Chave API não configurada.")
+    st.error("Erro: API Key não encontrada no Secrets do Streamlit.")
     st.stop()
 
-st.set_page_config(page_title="BioSim Pro", layout="wide")
+st.set_page_config(page_title="BioSim Online v5.1", layout="wide")
 
 # --- 2. ESTADO DA SESSÃO ---
 if 'sinais' not in st.session_state:
     st.session_state.sinais = {"fc": 75, "sp": 98, "resp": 16, "pam": 90}
 if 'ultimo_laudo' not in st.session_state:
     st.session_state.ultimo_laudo = ""
-
-# Listas que vão armazenar as tags que você criar na hora
 if 'opcoes_estilo' not in st.session_state:
     st.session_state.opcoes_estilo = []
 if 'opcoes_pato' not in st.session_state:
     st.session_state.opcoes_pato = []
 
-# --- 3. FÁBRICA DE TAGS (CALLBACKS) ---
-def add_estilo():
-    tag = st.session_state.input_estilo.strip()
-    if tag and tag not in st.session_state.opcoes_estilo:
-        st.session_state.opcoes_estilo.append(tag)
-    st.session_state.input_estilo = "" # Limpa o campo após o Enter
+# --- 3. LÓGICA DE TAGS MANUAIS ---
+def add_tag(key_input, key_lista):
+    tag = st.session_state[key_input].strip()
+    if tag and tag not in st.session_state[key_lista]:
+        st.session_state[key_lista].append(tag)
+    st.session_state[key_input] = "" # Limpa o campo após o Enter
 
-def add_pato():
-    tag = st.session_state.input_pato.strip()
-    if tag and tag not in st.session_state.opcoes_pato:
-        st.session_state.opcoes_pato.append(tag)
-    st.session_state.input_pato = ""
+# --- 4. MONITOR ECG (COMPLEXO QRS) ---
+def gerar_onda_ecg(fc):
+    pontos = 400
+    t = np.linspace(0, 2, pontos)
+    def beat(x):
+        x = x % 1.0
+        p = 0.15 * np.exp(-((x - 0.2)**2) / 0.001) # Onda P
+        qrs = 1.0 * np.exp(-((x - 0.4)**2) / 0.0001) - 0.1 * np.exp(-((x - 0.38)**2) / 0.0001) # QRS
+        t_wave = 0.25 * np.exp(-((x - 0.7)**2) / 0.005) # Onda T
+        return p + qrs + t_wave
+    
+    frequencia_ajustada = (fc / 60)
+    onda = [beat(ti * frequencia_ajustada) for ti in t]
+    onda += np.random.normal(0, 0.02, pontos) # Ruído clínico
+    return onda
 
-# --- 4. SIDEBAR ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.header("🧬 Perfil do Paciente")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
@@ -47,22 +55,23 @@ with st.sidebar:
     peso = st.number_input("Peso (kg)", 1.0, 300.0, 65.0)
     altura = st.number_input("Estatura (m)", 0.5, 2.5, 1.70)
     
+    # Sliders restaurados e independentes
     gordura = st.slider("Gordura Corporal (BF %)", 5, 50, 22)
     massa_magra = st.slider("Massa Magra (%)", 10, 90, 40)
     
     st.divider()
     st.subheader("📋 Histórico Clínico")
     
-    # CRIADOR DE TAGS: ESTILO DE VIDA
-    st.text_input("➕ Digite o Estilo de Vida e dê Enter:", key="input_estilo", on_change=add_estilo)
-    tags_estilo = st.multiselect("Tags de Estilo ativas:", options=st.session_state.opcoes_estilo, default=st.session_state.opcoes_estilo)
+    # Estilo de Vida (Tags Manuais)
+    st.text_input("➕ Adicionar Estilo de Vida (Enter):", key="in_estilo", on_change=add_tag, args=("in_estilo", "opcoes_estilo"))
+    tags_estilo = st.multiselect("Estilo de Vida Ativo:", options=st.session_state.opcoes_estilo, default=st.session_state.opcoes_estilo)
     
-    # CRIADOR DE TAGS: PATOLOGIAS
-    st.text_input("➕ Digite a Patologia e dê Enter:", key="input_pato", on_change=add_pato)
-    tags_pato = st.multiselect("Tags de Patologia ativas:", options=st.session_state.opcoes_pato, default=st.session_state.opcoes_pato)
+    # Patologias (Tags Manuais)
+    st.text_input("➕ Adicionar Patologia (Enter):", key="in_pato", on_change=add_tag, args=("in_pato", "opcoes_pato"))
+    tags_pato = st.multiselect("Patologias Ativas:", options=st.session_state.opcoes_pato, default=st.session_state.opcoes_pato)
 
-# --- 5. PAINEL DE TELEMETRIA REATIVO ---
-st.title("Painel de Telemetria BioSim")
+# --- 6. PAINEL DE TELEMETRIA ---
+st.title("Monitor Multiparamétrico BioSim (Online)")
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("FC (BPM)", st.session_state.sinais['fc'])
@@ -70,46 +79,40 @@ m2.metric("RESP (MPM)", st.session_state.sinais['resp'])
 m3.metric("PAM (mmHg)", st.session_state.sinais['pam'])
 m4.metric("SpO2 (%)", f"{st.session_state.sinais['sp']}%")
 
-t = np.linspace(0, 2, 200)
-onda = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.02, 200)
-st.line_chart(onda, height=150)
+st.write("**Traçado Eletrocardiográfico (ECG)**")
+onda_qrs = gerar_onda_ecg(st.session_state.sinais['fc'])
+st.line_chart(onda_qrs, height=200)
 
 st.divider()
 
-# --- 6. INTERVENÇÃO ---
+# --- 7. INTERVENÇÃO ---
 st.subheader("🧪 Intervenção Terapêutica")
 c_in, c_bt = st.columns([4, 1])
 droga = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
 
 if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
-    with st.spinner("Analisando cascata bioquímica..."):
-        # As tags selecionadas são injetadas direto no raciocínio da IA
-        prompt = (f"Paciente {sexo}, {idade}a, {peso}kg, {altura}m. "
-                  f"Gordura: {gordura}%, Massa Magra: {massa_magra}%. "
-                  f"Estilo de Vida: {', '.join(tags_estilo)}. Patologias: {', '.join(tags_pato)}. "
-                  f"Intervenção: {droga}. "
-                  f"Explique a farmacodinâmica e termine com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+    with st.spinner("IA analisando farmacodinâmica..."):
+        prompt = (f"Paciente {sexo}, {idade}a, {peso}kg, {altura}m. Gordura: {gordura}%, Massa Magra: {massa_magra}%. "
+                  f"Estilo: {', '.join(tags_estilo)}. Patologias: {', '.join(tags_pato)}. "
+                  f"Intervenção: {droga}. Explique a resposta e termine com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
         
         try:
             res = model.generate_content(prompt)
             texto_bruto = res.text
-            
             regex = r"\[FC:(\d+), RESP:(\d+), PAM:(\d+), SPO2:(\d+)\]"
             match = re.search(regex, texto_bruto)
             
             if match:
                 st.session_state.sinais = {
-                    "fc": int(match.group(1)),
-                    "resp": int(match.group(2)),
-                    "pam": int(match.group(3)),
-                    "sp": int(match.group(4))
+                    "fc": int(match.group(1)), "resp": int(match.group(2)),
+                    "pam": int(match.group(3)), "sp": int(match.group(4))
                 }
                 st.session_state.ultimo_laudo = re.sub(regex, "", texto_bruto)
-                st.rerun() 
+                st.rerun()
         except Exception as e:
-            st.error("Erro de cota ou conexão. Aguarde alguns segundos.")
+            st.error("Erro na comunicação. Verifique sua cota da API.")
 
-# --- 7. RESULTADO ---
+# --- 8. RESULTADO ---
 if st.session_state.ultimo_laudo:
-    st.markdown("### 📝 Resultado da Intervenção")
+    st.markdown("### 📝 Laudo de Resposta")
     st.info(st.session_state.ultimo_laudo)

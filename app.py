@@ -7,12 +7,12 @@ import re
 CHAVE_API = st.secrets.get("CHAVE_GEMINI", "")
 if CHAVE_API:
     genai.configure(api_key=CHAVE_API)
-    model = genai.GenerativeModel('gemini-1.5-flash') 
+    model = genai.GenerativeModel('gemini-2.5-flash') 
 else:
     st.error("Erro: API Key não encontrada no Secrets do Streamlit.")
     st.stop()
 
-st.set_page_config(page_title="BioSim Online v5.1", layout="wide")
+st.set_page_config(page_title="BioSim v5.1", layout="wide")
 
 # --- 2. ESTADO DA SESSÃO ---
 if 'sinais' not in st.session_state:
@@ -49,7 +49,7 @@ def gerar_onda_ecg(fc):
 
 # --- 5. SIDEBAR ---
 with st.sidebar:
-    st.header("🧬 Perfil do Paciente")
+    st.header("Perfil do Paciente")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
     idade = st.number_input("Idade", 1, 110, 24)
     peso = st.number_input("Peso (kg)", 1.0, 300.0, 65.0)
@@ -60,7 +60,7 @@ with st.sidebar:
     massa_magra = st.slider("Massa Magra (%)", 10, 90, 40)
     
     st.divider()
-    st.subheader("📋 Histórico Clínico")
+    st.subheader("Histórico Clínico")
     
     # Estilo de Vida (Tags Manuais)
     st.text_input("➕ Adicionar Estilo de Vida (Enter):", key="in_estilo", on_change=add_tag, args=("in_estilo", "opcoes_estilo"))
@@ -86,7 +86,7 @@ st.line_chart(onda_qrs, height=200)
 st.divider()
 
 # --- 7. INTERVENÇÃO ---
-st.subheader("🧪 Intervenção Terapêutica")
+st.subheader("Intervenção")
 c_in, c_bt = st.columns([4, 1])
 droga = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
 
@@ -114,5 +114,5 @@ if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
 
 # --- 8. RESULTADO ---
 if st.session_state.ultimo_laudo:
-    st.markdown("### 📝 Laudo de Resposta")
+    st.markdown("### Laudo de Resposta")
     st.info(st.session_state.ultimo_laudo)

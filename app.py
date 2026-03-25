@@ -9,7 +9,7 @@ import re
 CHAVE_GEMINI = st.secrets.get("CHAVE_GEMINI", "")
 if CHAVE_GEMINI:
     genai.configure(api_key=CHAVE_GEMINI)
-    model = genai.GenerativeModel('gemini-2.0-flash') 
+    model = genai.GenerativeModel('gemini-2.5-flash') 
 else:
     st.error("Erro de Licença.")
     st.stop()

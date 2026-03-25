@@ -4,24 +4,25 @@ import pandas as pd
 import numpy as np
 import re
 
-# --- 1. CONFIGURAÇÃO (FIXADO NA 2.5) ---
+# --- 1. CONFIGURAÇÃO (FIXADO NA VERSÃO 2.5) ---
 CHAVE_API = st.secrets.get("CHAVE_GEMINI", "")
 if CHAVE_API:
     genai.configure(api_key=CHAVE_API)
+    # Mantendo a 2.5 que você validou
     model = genai.GenerativeModel('gemini-2.5-flash') 
 else:
-    st.error("Erro de Licença: Chave não encontrada.")
+    st.error("Erro: Chave API não configurada.")
     st.stop()
 
 st.set_page_config(page_title="BioSim Professional", layout="wide")
 
-# --- 2. ESTADO DO SISTEMA (PERSISTÊNCIA DOS DADOS) ---
+# --- 2. ESTADO DO SISTEMA ---
 if 'sinais' not in st.session_state:
     st.session_state.sinais = {"fc": 75, "sp": 98, "resp": 16, "pam": 90}
 if 'ultimo_resultado' not in st.session_state:
     st.session_state.ultimo_resultado = ""
 
-# --- 3. CSS (VISUAL LIMPO E LÚDICO) ---
+# --- 3. ESTILO VISUAL ---
 st.markdown('''
     <style>
     .main { background-color: #05070A; }
@@ -37,7 +38,7 @@ st.markdown('''
     </style>
 ''', unsafe_allow_html=True)
 
-# --- 4. SIDEBAR (PERFIL COMPLETO) ---
+# --- 4. SIDEBAR (PERFIL COMPLETO RESTAURADO) ---
 with st.sidebar:
     st.markdown('## BioSim Pro')
     with st.expander("👤 PERFIL BIOLÓGICO", expanded=True):
@@ -46,41 +47,41 @@ with st.sidebar:
         peso = st.number_input("Massa (kg)", 1.0, 300.0, 65.0)
         altura = st.number_input("Estatura (m)", 0.5, 2.5, 1.70)
         gordura = st.slider("Gordura (BF %)", 5, 50, 22)
-        massa_magra = st.slider("Massa Magra (%)", 10, 90, 40) # MANTIDO
+        massa_magra = st.slider("Massa Magra (%)", 10, 90, 40) # RESTAURADO
     
     st.divider()
     st.subheader("📋 HISTÓRICO CLÍNICO")
-    estilo = st.text_input("Estilo de Vida:", placeholder="Ex: Atleta, fumante...")
+    estilo = st.text_input("Estilo de Vida:", placeholder="Ex: Atleta, Sedentário...")
     patologias = st.text_input("Comorbidades:", placeholder="Ex: ICC, Diabetes...")
 
-# --- 5. PAINEL DE MONITORAMENTO ---
-st.title("Monitor de Fisiologia Aplicada")
+# --- 5. MONITOR DINÂMICO ---
+st.title("Painel de Monitoramento Fisiológico")
 
 m1, m2, m3, m4 = st.columns(4)
 with m1:
-    st.metric("Frequência Cardíaca", f"{st.session_state.sinais['fc']} BPM")
-    st.progress(min(st.session_state.sinais['fc'] / 200, 1.0))
+    st.metric("FC (BPM)", st.session_state.sinais['fc'])
+    st.progress(min(st.session_state.sinais['fc'] / 220, 1.0))
 with m2:
-    st.metric("Frequência Resp.", f"{st.session_state.sinais['resp']} MPM")
+    st.metric("RESP (MPM)", st.session_state.sinais['resp'])
     st.progress(min(st.session_state.sinais['resp'] / 40, 1.0))
 with m3:
-    st.metric("Pressão Arterial (PAM)", f"{st.session_state.sinais['pam']} mmHg")
+    st.metric("PAM (mmHg)", st.session_state.sinais['pam'])
     st.progress(min(st.session_state.sinais['pam'] / 180, 1.0))
 with m4:
-    st.metric("Saturação O2", f"{st.session_state.sinais['sp']} %")
+    st.metric("SpO2 (%)", st.session_state.sinais['sp'])
     st.progress(st.session_state.sinais['sp'] / 100)
 
-# Gráfico de Ondas (Sincronizado com os sinais atuais)
+# Gráfico atualizado conforme logs (stretch)
 t = np.linspace(0, 2, 200)
 onda = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.02, 200)
-st.line_chart(onda, height=150)
+st.line_chart(onda, height=150, width='stretch')
 
 st.divider()
 
-# --- 6. INTERVENÇÃO ---
+# --- 6. SIMULAÇÃO ---
 st.subheader("🧪 Intervenção Terapêutica")
 c_in, c_bt = st.columns([4, 1])
-intervencao = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
+intervencao = c_in.text_input("Fármaco/Estímulo:", key="sim_input")
 btn_simular = c_bt.button("EXECUTAR SIMULAÇÃO")
 
 def extrair_dados(texto):
@@ -91,22 +92,20 @@ def extrair_dados(texto):
     return None
 
 if btn_simular and intervencao:
-    with st.spinner("Simulando Resposta..."):
-        # Prompt técnico que considera Massa Magra e Perfil
-        p = (f"Simulação Fisiológica: {sexo}, {idade}a, {peso}kg, {altura}m. Massa Magra: {massa_magra}%. "
-             f"Estilo: {estilo}. Patologias: {patologias}. Intervenção: {intervencao}. "
-             f"Descreva os efeitos clínicos e finalize com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+    with st.spinner("Simulando Cascata Farmacológica..."):
+        p = (f"Paciente {sexo}, {idade}a, {peso}kg, {altura}m, {massa_magra}% Massa Magra. "
+             f"Estilo: {estilo}. Patologia: {patologias}. Intervenção: {intervencao}. "
+             f"Explique os efeitos e finalize com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
         try:
             res = model.generate_content(p)
             st.session_state.ultimo_resultado = res.text
-            novos = extrair_dados(res.text)
-            if novos:
-                st.session_state.sinais.update(novos)
-            st.rerun() # Atualiza o monitor imediatamente
+            dados = extrair_dados(res.text)
+            if dados:
+                st.session_state.sinais.update(dados)
+            st.rerun()
         except Exception as e:
-            st.error("Erro na comunicação. Aguarde 60 segundos e tente novamente.")
+            st.error("Limite de cota excedido. Aguarde 1 minuto para a próxima requisição.")
 
-# EXIBIÇÃO DO RESULTADO ABAIXO DA INTERVENÇÃO
 if st.session_state.ultimo_resultado:
     st.markdown("### 📝 Resultado da Intervenção")
     st.markdown(f'<div class="resultado-clinico">{st.session_state.ultimo_resultado}</div>', unsafe_allow_html=True)

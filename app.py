@@ -1,187 +1,122 @@
-import os
-from pyngrok import ngrok
-
-# --- 1. LIMPEZA DE SEGURANÇA ---
-ngrok.kill()
-os.system("pkill streamlit")
-
-# --- 2. CONFIGURAÇÕES (SUAS CHAVES JÁ INSERIDAS) ---
-CHAVE_GEMINI = "AIzaSyC9Sp2IitOOH5fxWFEQP6OYCC6pefv0EhY"
-TOKEN_NGROK = "3BPeefRZENcETZ7FBotQ5XvDpmR_G3nfYzhWX7HqMW9Jq3Jm"
-
-ngrok.set_auth_token(TOKEN_NGROK)
-
-# --- 3. CONSTRUÇÃO DO SISTEMA (app.py) ---
-app_code = f"""
 import streamlit as st
 import google.generativeai as genai
 import pandas as pd
 import numpy as np
 import time
 
-genai.configure(api_key="{CHAVE_GEMINI}")
-model = genai.GenerativeModel('gemini-2.5-flash')
+# Configurações iniciais
+genai.configure(api_key="AIzaSyC9Sp2IitOOH5fxWFEQP6OYCC6pefv0EhY")
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 st.set_page_config(page_title="BioSim Pro", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS: Estética de Monitor de Sinais Vitais (UTI) ---
+# --- CSS para Estética de Monitor Real ---
 st.markdown('''
     <style>
-    .main {{ background-color: #05070A; color: #FFFFFF; }}
-    [data-testid="stSidebar"] {{ background-color: #0F172A; border-right: 1px solid #1E293B; }}
+    .main { background-color: #05070A; color: #FFFFFF; }
+    [data-testid="stSidebar"] { background-color: #0F172A; }
     
-    /* Título BioSim no Topo Esquerdo */
-    .biosim-title {{
-        font-size: 48px;
-        font-weight: 800;
-        color: #F8FAFC;
-        margin-bottom: -10px;
-        font-family: 'Inter', sans-serif;
-    }}
+    .biosim-title { font-size: 48px; font-weight: 800; color: #F8FAFC; margin-bottom: 20px; }
     
-    /* Painel Preto do Monitor (Lado Direito) */
-    .monitor-panel {{ 
+    .monitor-panel { 
         background-color: #000000; 
-        padding: 20px; 
+        padding: 15px; 
         border-radius: 8px; 
         border: 1px solid #1E293B; 
-        height: 100%; 
         display: flex; 
         flex-direction: column; 
         justify-content: space-around;
-    }}
-    .metric-group {{ text-align: right; }}
-    .metric-label {{ font-size: 14px; font-weight: bold; font-family: sans-serif; }}
-    .metric-value {{ font-size: 65px; font-weight: bold; font-family: 'Courier New', monospace; line-height: 1; }}
-    
-    /* Caixa de Relatório Técnico */
-    .report-box {{ 
-        background-color: #0B1120; 
-        padding: 25px; 
-        border: 1px solid #1E293B; 
-        border-radius: 6px; 
-        color: #CBD5E1; 
-        font-family: 'Inter', sans-serif; 
-        font-size: 15px; 
-        max-height: 500px; 
-        overflow-y: auto; 
-    }}
-    
-    .stButton>button {{ background-color: #2563EB; color: white; font-weight: bold; height: 3.5em; width: 100%; }}
+        height: 450px;
+    }
+    .metric-group { text-align: right; line-height: 1; }
+    .metric-label { font-size: 12px; font-weight: bold; }
+    .metric-value { font-size: 60px; font-weight: bold; font-family: monospace; }
     </style>
 ''', unsafe_allow_html=True)
 
-# ==========================================
-# 1. SIDEBAR: BIOSIM + DADOS DO PACIENTE
-# ==========================================
+# --- SIDEBAR ---
 with st.sidebar:
     st.markdown('<div class="biosim-title">BioSim</div>', unsafe_allow_html=True)
-    st.markdown('<p style="color: #64748B; margin-bottom: 30px;">Physiological Simulator v3.0</p>', unsafe_allow_html=True)
-    
-    st.subheader("👤 Perfil Biológico")
+    st.subheader("👤 Perfil do Paciente")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
     idade = st.number_input("Idade", 18, 100, 24)
-    
-    c1, c2 = st.columns(2)
-    peso = c1.number_input("Massa (kg)", value=65.0)
-    altura = c2.number_input("Estatura (m)", value=1.70)
-    
-    fat = st.slider("Gordura (BF %)", 5, 50, 22)
-    musculo = st.slider("Massa Magra (%)", 20, 70, 40)
+    peso = st.number_input("Massa (kg)", value=65.0)
     
     st.divider()
-    st.subheader("📋 Histórico e Estilo")
-    estilo = st.multiselect("Fatores", ["Sedentário", "Ativo", "Atleta Elite", "Tabagista", "Alcoolista"])
-    condicao = st.selectbox("Patologia Preexistente", ["Nenhuma", "Diabetes Tipo 1", "Diabetes Tipo 2", "HAS Estágio II", "Hipertiroidismo", "Hipotiroidismo"])
+    intervencao = st.text_input("💉 Intervenção (Fármaco/Estímulo):")
+    simular_btn = st.button("Simular Resposta")
 
-# ==========================================
-# 2. MONITOR DE SINAIS VITAIS (TOPO)
-# ==========================================
-col_ondas, col_numeros = st.columns([2.5, 1])
+# --- ÁREA DO MONITOR (ESTÁTICA) ---
+col_grafico, col_numeros = st.columns([3, 1])
 
-with col_ondas:
+with col_grafico:
     st.markdown("### Telemetria Multiparamétrica")
-    chart_placeholder = st.empty()
+    # Este é o segredo: um placeholder que será limpo e preenchido continuamente
+    plot_spot = st.empty()
 
-def gerar_ondas(impacto=0, seed=0):
-    t = np.linspace(0, 10, 80) + seed
-    # Ajuste de baseline por patologia
-    base_fc = 110 if "Hipertiroidismo" in condicao else (60 if "Atleta" in estilo else 75)
-    base_fc += (impacto * 40)
-    
-    # Simulação das curvas (ECG, SpO2, RESP, PAM)
-    df = pd.DataFrame({{
-        'Tempo': t,
-        'ECG': np.sin(t * (base_fc/12)) + np.random.normal(0, 0.05, 80),
-        'PLET': np.sin(t * 2.5) * 0.5 + 98 - (impacto * 5),
-        'RESP': np.sin(t * 1.2) * 0.4 + 18 + (impacto * 10),
-        'PAM': np.sin(t * (base_fc/12)) * 0.3 + (150 if "HAS" in condicao else 115) + (impacto * 30)
-    }}).set_index('Tempo')
-    
-    vals = {{
-        "fc": int(base_fc + np.random.randint(-2, 3)),
-        "spo2": int(98 - (impacto * 5)),
-        "resp": int(18 + (impacto * 8)),
-        "pa": f"{{int(120 + impacto*40)}}/{{int(80 + impacto*20)}}"
-    }}
-    return df, vals
+with col_numeros:
+    # Placeholder para os números à direita
+    metrics_spot = st.empty()
 
-def atualizar_monitor(impacto=0, seed=0):
-    df, v = gerar_ondas(impacto, seed)
-    chart_placeholder.line_chart(df, color=["#00FF00", "#00FFFF", "#FFFF00", "#FFFFFF"], height=400)
+# Placeholder para o laudo lá embaixo
+laudo_spot = st.empty()
+
+# --- LÓGICA DE SIMULAÇÃO EM TEMPO REAL ---
+def iniciar_monitor():
+    t_base = 0
+    impacto = 0
     
-    with col_numeros:
-        st.markdown(f'''
+    # Se clicar no botão, aumenta o impacto visual temporariamente
+    if simular_btn and intervencao:
+        impacto = 0.5
+        with laudo_spot:
+            st.info(f"Analisando resposta biológica para: {intervencao}...")
+
+    # Loop Infinito (O Monitor "Vivo")
+    while True:
+        t_base += 0.1
+        t = np.linspace(t_base, t_base + 5, 100)
+        
+        # Gerando as curvas
+        df = pd.DataFrame({
+            'Tempo': t,
+            'ECG': np.sin(t * 8) + np.random.normal(0, 0.05, 100),
+            'PLET': np.sin(t * 2) * 0.5 + 2,
+            'RESP': np.sin(t * 0.8) * 0.3 + 1,
+            'PAM': np.sin(t * 8) * 0.2 + 4
+        }).set_index('Tempo')
+
+        # 1. Atualiza o Gráfico (sem criar um novo embaixo)
+        plot_spot.line_chart(df, color=["#00FF00", "#00FFFF", "#FFFF00", "#FFFFFF"], height=400)
+
+        # 2. Atualiza os Números à direita
+        fc = int(75 + (impacto * 30) + np.random.randint(-2, 3))
+        spo2 = int(98 - (impacto * 3))
+        resp = int(18 + (impacto * 5))
+        
+        metrics_spot.markdown(f'''
             <div class="monitor-panel">
                 <div class="metric-group" style="color: #00FF00;">
                     <div class="metric-label">ECG / FC</div>
-                    <div class="metric-value">{{v['fc']}}</div>
+                    <div class="metric-value">{fc}</div>
                 </div>
                 <div class="metric-group" style="color: #00FFFF;">
                     <div class="metric-label">SpO2 %</div>
-                    <div class="metric-value">{{v['spo2']}}</div>
+                    <div class="metric-value">{spo2}</div>
                 </div>
                 <div class="metric-group" style="color: #FFFF00;">
                     <div class="metric-label">RESP</div>
-                    <div class="metric-value">{{v['resp']}}</div>
+                    <div class="metric-value">{resp}</div>
                 </div>
                 <div class="metric-group" style="color: #FFFFFF;">
-                    <div class="metric-label">PANI mmHg</div>
-                    <div class="metric-value" style="font-size: 40px;">{{v['pa']}}</div>
+                    <div class="metric-label">TEMP ºC</div>
+                    <div class="metric-value" style="font-size: 35px;">37.2</div>
                 </div>
             </div>
         ''', unsafe_allow_html=True)
+        
+        # Pequena pausa para simular a velocidade do monitor
+        time.sleep(0.1)
 
-# Render inicial
-atualizar_monitor()
-
-# ==========================================
-# 3. INTERVENÇÃO E LAUDO (ABAIXO DO MONITOR)
-# ==========================================
-st.divider()
-st.subheader("🧪 Simulador de Fisiologia Aplicada")
-c_in, c_bt = st.columns([4, 1])
-intervencao = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 1mg IV")
-btn = c_bt.button("Executar Simulação")
-
-report_area = st.empty()
-
-if btn and intervencao:
-    # Animação do monitor reagindo
-    for i in range(1, 11):
-        atualizar_monitor(impacto=i/10, seed=i)
-        time.sleep(0.05)
-    
-    with st.spinner("Processando farmacodinâmica molecular..."):
-        prompt = f"Analise técnica: Paciente {{sexo}}, {{idade}}a, {{peso}}kg. BF: {{fat}}%, MM: {{musculo}}%. Patologia: {{condicao}}. Intervenção: {{intervencao}}. Forneça um laudo com Vias de Sinalização, Cinética e Desfecho Hemodinâmico. Use linguagem estritamente acadêmica."
-        response = model.generate_content(prompt)
-        report_area.markdown(f'<div class="report-box">{{response.text}}</div>', unsafe_allow_html=True)
-"""
-
-with open("app.py", "w") as f:
-    f.write(app_code)
-
-# --- 4. EXECUÇÃO ---
-os.system("nohup streamlit run app.py &")
-public_url = ngrok.connect(8501).public_url
-print(f"\n✅ BIOSIM ONLINE: {public_url}")
+# Inicia o loop
+iniciar_monitor()

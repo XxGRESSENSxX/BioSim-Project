@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import pandas as pd
 import numpy as np
 import re
 
@@ -21,7 +20,26 @@ if 'sinais' not in st.session_state:
 if 'ultimo_laudo' not in st.session_state:
     st.session_state.ultimo_laudo = ""
 
-# --- 3. SIDEBAR (CAMPOS MANUAIS E SEPARADOS) ---
+# Listas que vão armazenar as tags que você criar na hora
+if 'opcoes_estilo' not in st.session_state:
+    st.session_state.opcoes_estilo = []
+if 'opcoes_pato' not in st.session_state:
+    st.session_state.opcoes_pato = []
+
+# --- 3. FÁBRICA DE TAGS (CALLBACKS) ---
+def add_estilo():
+    tag = st.session_state.input_estilo.strip()
+    if tag and tag not in st.session_state.opcoes_estilo:
+        st.session_state.opcoes_estilo.append(tag)
+    st.session_state.input_estilo = "" # Limpa o campo após o Enter
+
+def add_pato():
+    tag = st.session_state.input_pato.strip()
+    if tag and tag not in st.session_state.opcoes_pato:
+        st.session_state.opcoes_pato.append(tag)
+    st.session_state.input_pato = ""
+
+# --- 4. SIDEBAR ---
 with st.sidebar:
     st.header("🧬 Perfil do Paciente")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
@@ -29,28 +47,21 @@ with st.sidebar:
     peso = st.number_input("Peso (kg)", 1.0, 300.0, 65.0)
     altura = st.number_input("Estatura (m)", 0.5, 2.5, 1.70)
     
-    # Sliders separados mantidos
     gordura = st.slider("Gordura Corporal (BF %)", 5, 50, 22)
     massa_magra = st.slider("Massa Magra (%)", 10, 90, 40)
     
     st.divider()
     st.subheader("📋 Histórico Clínico")
     
-    # Estilo de Vida: Texto livre
-    estilo_vida = st.text_input("Estilo de Vida:", placeholder="Ex: Maratonista, fumante...")
+    # CRIADOR DE TAGS: ESTILO DE VIDA
+    st.text_input("➕ Digite o Estilo de Vida e dê Enter:", key="input_estilo", on_change=add_estilo)
+    tags_estilo = st.multiselect("Tags de Estilo ativas:", options=st.session_state.opcoes_estilo, default=st.session_state.opcoes_estilo)
     
-    # Patologias: ENTRADA MANUAL (estilo LinkedIn)
-    # O st.multiselect com 'options' vazias e 'default' permite que você digite e crie novas tags
-    patologias = st.multiselect(
-        "Patologias / Comorbidades Prévias (digite e dê enter):",
-        options=[], 
-        default=[],
-        placeholder="Escreva e aperte Enter",
-        help="Digite qualquer termo e pressione Enter para adicionar como tag.",
-        key="patologias_tags"
-    )
+    # CRIADOR DE TAGS: PATOLOGIAS
+    st.text_input("➕ Digite a Patologia e dê Enter:", key="input_pato", on_change=add_pato)
+    tags_pato = st.multiselect("Tags de Patologia ativas:", options=st.session_state.opcoes_pato, default=st.session_state.opcoes_pato)
 
-# --- 4. PAINEL DE TELEMETRIA REATIVO ---
+# --- 5. PAINEL DE TELEMETRIA REATIVO ---
 st.title("Painel de Telemetria BioSim")
 
 m1, m2, m3, m4 = st.columns(4)
@@ -59,23 +70,23 @@ m2.metric("RESP (MPM)", st.session_state.sinais['resp'])
 m3.metric("PAM (mmHg)", st.session_state.sinais['pam'])
 m4.metric("SpO2 (%)", f"{st.session_state.sinais['sp']}%")
 
-# Gráfico dinâmico conforme a FC
 t = np.linspace(0, 2, 200)
 onda = np.sin(t * (st.session_state.sinais['fc']/10)) + np.random.normal(0, 0.02, 200)
 st.line_chart(onda, height=150)
 
 st.divider()
 
-# --- 5. INTERVENÇÃO ---
+# --- 6. INTERVENÇÃO ---
 st.subheader("🧪 Intervenção Terapêutica")
 c_in, c_bt = st.columns([4, 1])
 droga = c_in.text_input("Inserir Fármaco ou Estímulo:", placeholder="Ex: Adrenalina 2mg IV")
 
 if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
-    with st.spinner("Analisando resposta..."):
+    with st.spinner("Analisando cascata bioquímica..."):
+        # As tags selecionadas são injetadas direto no raciocínio da IA
         prompt = (f"Paciente {sexo}, {idade}a, {peso}kg, {altura}m. "
                   f"Gordura: {gordura}%, Massa Magra: {massa_magra}%. "
-                  f"Estilo de Vida: {estilo_vida}. Patologias: {', '.join(patologias)}. "
+                  f"Estilo de Vida: {', '.join(tags_estilo)}. Patologias: {', '.join(tags_pato)}. "
                   f"Intervenção: {droga}. "
                   f"Explique a farmacodinâmica e termine com: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
         
@@ -94,11 +105,11 @@ if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
                     "sp": int(match.group(4))
                 }
                 st.session_state.ultimo_laudo = re.sub(regex, "", texto_bruto)
-                st.rerun() # Atualiza os números no topo
+                st.rerun() 
         except Exception as e:
-            st.error("Erro de cota. Aguarde 60 segundos.")
+            st.error("Erro de cota ou conexão. Aguarde alguns segundos.")
 
-# --- 6. RESULTADO ---
+# --- 7. RESULTADO ---
 if st.session_state.ultimo_laudo:
     st.markdown("### 📝 Resultado da Intervenção")
     st.info(st.session_state.ultimo_laudo)

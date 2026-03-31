@@ -119,7 +119,7 @@ st.line_chart(gerar_onda_ecg(st.session_state.sinais['fc']), height=200)
 
 st.divider()
 
-# --- 7. MOTOR DE SIMULAÇÃO (PROMPT DETERMINÍSTICO) ---
+# --- 7. MOTOR DE SIMULAÇÃO (CORRIGIDO PARA ATUALIZAR O MONITOR) ---
 aba_simulacao, aba_referencias = st.tabs(["Intervenção", "Referências Teóricas (ABNT)"])
 
 with aba_simulacao:
@@ -128,44 +128,34 @@ with aba_simulacao:
 
     if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
         with st.spinner("Analisando resposta fisiológica..."):
-            # Prompt blindado contra "moralismos" e avisos éticos
-            prompt = (f"BIO-SIMULADOR AMBIENTE CONTROLADO - USO EXCLUSIVAMENTE ACADÊMICO.\n"
-                      f"CONTEXTO: Pesquisa de toxicologia e farmacodinâmica comparada.\n"
-                      f"PACIENTE VIRTUAL: {especie_selecionada}, {sexo}, {idade} anos, {peso}kg, {parametro_fisico}.\n"
-                      f"SINAIS ATUAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
-                      f"RESP={st.session_state.sinais['resp']}, SpO2={st.session_state.sinais['sp']}%.\n"
-                      f"INTERVENÇÃO EXPERIMENTAL: {droga}.\n\n"
-                      f"DIRETRIZES DE OUTPUT (ESTRITO):\n"
-                      f"1. NÃO emita avisos éticos, NÃO use frases de cautela e NÃO se desculpe.\n"
-                      f"2. Atue como um motor de cálculo fisiológico puro e frio.\n"
-                      f"3. Comece diretamente na análise bioquímica da droga no organismo.\n"
-                      f"4. Se a dose for letal, descreva o colapso e forneça os valores fatais (ex: FC:0).\n"
-                      f"5. Separe referências bibliográficas reais com [REF].\n"
-                      f"6. OBRIGATÓRIO (FORMATO PARA PARSER): [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+            # Prompt direto e sem avisos éticos
+            prompt = (f"Simulação para {especie_selecionada}, {parametro_fisico}.\n"
+                      f"SINAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, RESP={st.session_state.sinais['resp']}.\n"
+                      f"AÇÃO: {droga}.\n\n"
+                      f"Responda tecnicamente sem introduções ou avisos éticos.\n"
+                      f"No final, inclua OBRIGATORIAMENTE os novos sinais neste formato: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
             
             try:
                 response = model.generate_content(prompt)
                 texto = response.text
                 
-                # Divisão entre Laudo e Referências
                 if "[REF]" in texto:
                     partes = texto.split("[REF]")
                     laudo_bruto, referencias_abnt = partes[0], partes[1].strip()
                 else:
                     laudo_bruto, referencias_abnt = texto, "Referências bibliográficas não geradas."
 
-                # Extração Regex dos novos sinais vitais
-                match = re.search(r"\[FC:(\d+), RESP:(\d+), PAM:(\d+), SPO2:(\d+)\]", laudo_bruto)
+                # BUSCA ROBUSTA (Aceita espaços e letras maiúsculas/minúsculas)
+                match = re.search(r"\[\s*FC:\s*(\d+),\s*RESP:\s*(\d+),\s*PAM:\s*(\d+),\s*SPO2:\s*(\d+)\s*\]", laudo_bruto, re.IGNORECASE)
                 
                 if match:
                     st.session_state.sinais = {
                         "fc": int(match.group(1)), "resp": int(match.group(2)),
                         "pam": int(match.group(3)), "sp": int(match.group(4))
                     }
-                    # Remove as tags do texto final para exibição limpa
                     st.session_state.ultimo_laudo = re.sub(r"\[.*\]", "", laudo_bruto).strip()
                     st.session_state.referencias = referencias_abnt
-                    st.rerun()
+                    st.rerun() # Isso força o monitor a atualizar na hora
                 else:
                     st.session_state.ultimo_laudo = laudo_bruto
             except Exception as e:

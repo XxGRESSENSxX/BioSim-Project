@@ -16,7 +16,7 @@ except:
 genai.configure(api_key=CHAVE_API)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-st.set_page_config(page_title="BioSim v2.6", layout="wide")
+st.set_page_config(page_title="BioSim v2.5 pro", layout="wide")
 
 # --- 2. DICIONÁRIO DE ESPÉCIES ---
 ESPECIES = {
@@ -79,10 +79,15 @@ with st.sidebar:
     st.session_state.sinais['sp'] = st.number_input("SpO₂ (%)", 40, 100, st.session_state.sinais['sp'])
 
     st.divider()
+    st.subheader("Perfil e Composição")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
     idade = st.number_input("Idade", 1, 110, 24)
     peso = st.number_input("Peso (kg)", 0.1, 1000.0, 65.0)
     
+    col1, col2 = st.columns(2)
+    massa_magra = col1.number_input("Massa Magra (%)", 0.0, 100.0, 75.0)
+    gordura = col2.number_input("Gordura (%)", 0.0, 100.0, 25.0)
+
     if especie_selecionada == "Humano":
         altura_valor = st.number_input("Estatura (m)", 0.50, 2.50, 1.70)
         parametro_fisico = f"Estatura: {altura_valor}m"
@@ -118,49 +123,64 @@ with aba_simulacao:
     droga = c_in.text_input("Inserir Ação (Ex: Atropina 0.04mg/kg IV):")
 
     if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
-        with st.spinner("Processando resposta farmacológica complexa..."):
-            # PROMPT COM PROFUNDIDADE MÁXIMA
-            prompt = (
-                f"AJA COMO UM ESPECIALISTA EM FARMACOLOGIA E FISIOLOGIA.\n"
-                f"PACIENTE: {especie_selecionada}, {sexo}, {idade} anos, {peso}kg, {parametro_fisico}.\n"
-                f"ESTILO DE VIDA: {', '.join(tags_estilo) if tags_estilo else 'Nenhum'}.\n"
-                f"PATOLOGIAS: {', '.join(tags_pato) if tags_pato else 'Nenhuma'}.\n"
-                f"SINAIS ATUAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
-                f"RESP={st.session_state.sinais['resp']}, SpO2={st.session_state.sinais['sp']}%.\n\n"
-                f"AÇÃO: {droga}.\n\n"
-                f"REGRAS CRÍTICAS:\n"
-                f"1. Analise como o perfil (sexo, peso, estilo de vida) altera a farmacodinâmica da droga.\n"
-                f"2. Explique a cascata bioquímica e a resposta dos receptores com rigor acadêmico.\n"
-                f"3. Gere referências bibliográficas reais em normas ABNT após a tag [REF].\n"
-                f"4. FINALIZAÇÃO OBRIGATÓRIA: Calcule os novos sinais vitais após a intervenção e coloque no final como: [FC:X, RESP:Y, PAM:Z, SPO2:W]"
-            )
+        with st.spinner("Processando Simulação..."):
+            
+            prompt = f"""
+            Atue como um Especialista Sênior em Farmacologia e Fisiologia.
+            
+            Dados do Paciente:
+            Espécie: {especie_selecionada} | Sexo: {sexo} | Idade: {idade} anos
+            Peso: {peso}kg | Massa Magra: {massa_magra}% | Gordura Corporal: {gordura}%
+            Físico: {parametro_fisico}
+            Estilo de Vida: {', '.join(tags_estilo) if tags_estilo else 'Nenhum'}
+            Patologias: {', '.join(tags_pato) if tags_pato else 'Nenhuma'}
+            
+            Sinais Vitais Iniciais:
+            FC: {st.session_state.sinais['fc']} | PAM: {st.session_state.sinais['pam']} | RESP: {st.session_state.sinais['resp']} | SpO2: {st.session_state.sinais['sp']}%
+            
+            Intervenção: {droga}
+            
+            Tarefa:
+            Forneça uma explicação clínica detalhada, fluida e aprofundada (nível de doutorado). Vá direto ao ponto técnico, sem saudações genéricas.
+            1. Descreva a farmacocinética da droga, explicando como o volume de distribuição e a lipossolubilidade são afetados pelos exatos {gordura}% de gordura e {massa_magra}% de massa magra do paciente.
+            2. Detalhe a farmacodinâmica, a cascata bioquímica e a afinidade pelos receptores.
+            3. Explique as alterações fisiológicas que justificam a mudança nos sinais vitais.
+            
+            Após sua explicação, adicione a tag [REF] seguida de 3 referências bibliográficas reais e formatadas em ABNT.
+            
+            Por fim, na última linha, você DEVE retornar as novas projeções de sinais vitais OBRIGATORIAMENTE no formato exato abaixo (substituindo as letras por números inteiros):
+            [FC:X, RESP:Y, PAM:Z, SPO2:W]
+            """
             
             try:
                 response = model.generate_content(prompt)
-                texto = response.text
+                texto_completo = response.text
                 
-                # Divisão de Referências
-                if "[REF]" in texto:
-                    partes = texto.split("[REF]")
-                    laudo_bruto = partes[0]
-                    st.session_state.referencias = partes[1].strip()
-                else:
-                    laudo_bruto = texto
-                    st.session_state.referencias = "Referências não geradas nesta interação."
-
-                # Captura de sinais vitais (Regex robusto)
-                match = re.search(r"\[\s*FC:\s*(\d+),\s*RESP:\s*(\d+),\s*PAM:\s*(\d+),\s*SPO2:\s*(\d+)\s*\]", laudo_bruto, re.IGNORECASE)
+                # 1. Puxa os sinais vitais de QUALQUER LUGAR do texto
+                match = re.search(r"\[\s*FC:\s*(\d+).*?RESP:\s*(\d+).*?PAM:\s*(\d+).*?SPO2:\s*(\d+)\s*\]", texto_completo, re.IGNORECASE | re.DOTALL)
                 
                 if match:
                     st.session_state.sinais = {
                         "fc": int(match.group(1)), "resp": int(match.group(2)),
                         "pam": int(match.group(3)), "sp": int(match.group(4))
                     }
-                    # Remove a etiqueta do texto para exibição limpa
-                    st.session_state.ultimo_laudo = re.sub(r"\[\s*FC:.*?\]", "", laudo_bruto, flags=re.IGNORECASE).strip()
-                    st.rerun()
+                    # Remove a tag de sinais vitais para limpar o texto final
+                    texto_limpo = re.sub(r"\[\s*FC:.*?\]", "", texto_completo, flags=re.IGNORECASE | re.DOTALL).strip()
                 else:
-                    st.session_state.ultimo_laudo = laudo_bruto
+                    texto_limpo = texto_completo
+
+                # 2. Agora sim, divide o texto entre Laudo e Referências
+                if "[REF]" in texto_limpo:
+                    partes = texto_limpo.split("[REF]")
+                    st.session_state.ultimo_laudo = partes[0].strip()
+                    st.session_state.referencias = partes[1].strip()
+                else:
+                    st.session_state.ultimo_laudo = texto_limpo
+                    st.session_state.referencias = "Nenhuma referência ABNT gerada."
+
+                if match:
+                    st.rerun()
+
             except Exception as e:
                 st.error(f"Erro na simulação: {e}")
 

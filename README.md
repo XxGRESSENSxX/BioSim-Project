@@ -18,10 +18,10 @@ O software foi construído em **Python**, utilizando:
 2. **NumPy:** Processamento matemático para geração de ondas fisiológicas.
 3. **Regex:** Extração de dados estruturados para atualização do monitor.
 
-##Próximos Passos (v3.0)
+Próximos Passos (v3.0)
 * [ ] Implementação de banco de dados local (**SQLite**) para independência da nuvem.
 * [ ] Motor de cálculo **100% Offline**.
 * [ ] Encapsulamento para executável (** .exe**).
 
 ---
-*Desenvolvido para fins de pesquisa em Biotecnologia e Farmacologia.*
+*Desenvolvido para fins de pesquisa e estudos de caso*

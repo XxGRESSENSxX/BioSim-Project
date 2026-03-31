@@ -5,8 +5,7 @@ O **BioSim v2.5** é um simulador *in silico* de alta fidelidade desenvolvido pa
 O sistema utiliza Inteligência Artificial Generativa integrada a uma interface de monitoramento multiparamétrico, permitindo a configuração de prontuários dinâmicos e a observação da resposta fisiológica imediata.
 
 <p align="center">
-  <video src="demo.mp4" width="100%" autoplay loop muted playsinline>
-    Seu navegador não suporta este vídeo.
+  <video src="https://raw.githubusercontent.com/XxGRESSENSxX/BioSim-Project/main/demo.mp4" width="100%" autoplay loop muted playsinline>
   </video>
 </p>
 

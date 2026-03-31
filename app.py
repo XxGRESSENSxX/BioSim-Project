@@ -16,7 +16,7 @@ except:
 genai.configure(api_key=CHAVE_API)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-st.set_page_config(page_title="BioSim v2.5 - Edição Acadêmica", layout="wide")
+st.set_page_config(page_title="BioSim v2.5", layout="wide")
 
 # --- 2. DICIONÁRIO DE ESPÉCIES (VALORES BASAIS) ---
 ESPECIES = {
@@ -26,7 +26,7 @@ ESPECIES = {
     "Equino": {"fc": 36, "resp": 12, "pam": 95, "sp": 96}
 }
 
-# --- 3. ESTADO DA SESSÃO ---
+# --- 3. ESTADO DA SESSÃO (PERSISTÊNCIA DE DADOS) ---
 if 'sinais' not in st.session_state:
     st.session_state.sinais = ESPECIES["Humano"].copy()
 if 'ultimo_laudo' not in st.session_state:
@@ -63,7 +63,7 @@ def gerar_onda_ecg(fc):
         return p + qrs + t_wave
     return [beat(ti * (fc / 60)) for ti in t] + np.random.normal(0, 0.012, pontos)
 
-# --- 5. SIDEBAR (LÓGICA DINÂMICA DE PORTE vs ALTURA) ---
+# --- 5. SIDEBAR (PARÂMETROS BIOMÉTRICOS) ---
 with st.sidebar:
     st.header("Parâmetros do Estudo")
     
@@ -82,12 +82,12 @@ with st.sidebar:
     st.session_state.sinais['sp'] = st.number_input("SpO₂ (%)", 40, 100, st.session_state.sinais['sp'])
 
     st.divider()
-    st.subheader("Dados Biométricos")
+    st.subheader("Dados do Paciente")
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
     idade = st.number_input("Idade", 1, 110, 24)
     peso = st.number_input("Peso (kg)", 0.1, 1000.0, 65.0)
     
-    # Lógica de Porte vs Altura
+    # Lógica Condicional: Altura (Humano) vs Porte (Vet)
     if especie_selecionada == "Humano":
         altura_valor = st.number_input("Estatura (m)", 0.50, 2.50, 1.70)
         parametro_fisico = f"Estatura: {altura_valor}m"
@@ -107,7 +107,7 @@ with st.sidebar:
     if st.button("RESETAR ESTUDO", use_container_width=True, on_click=reset_estudo):
         st.rerun()
 
-# --- 6. MONITOR ---
+# --- 6. MONITOR MULTIPARAMÉTRICO ---
 st.title("Monitor Multiparamétrico BioSim")
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("FC (BPM)", st.session_state.sinais['fc'])
@@ -119,7 +119,7 @@ st.line_chart(gerar_onda_ecg(st.session_state.sinais['fc']), height=200)
 
 st.divider()
 
-# --- 7. ABAS DE RESULTADOS ---
+# --- 7. MOTOR DE SIMULAÇÃO (PROMPT DETERMINÍSTICO) ---
 aba_simulacao, aba_referencias = st.tabs(["Intervenção", "Referências Teóricas (ABNT)"])
 
 with aba_simulacao:
@@ -128,27 +128,33 @@ with aba_simulacao:
 
     if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
         with st.spinner("Analisando resposta fisiológica..."):
-            prompt = (f"Simulação Farmacológica Acadêmica.\n"
-                      f"ESPÉCIE: {especie_selecionada}. PACIENTE: {sexo}, {idade} anos, {peso}kg.\n"
-                      f"DIMENSÃO FÍSICA: {parametro_fisico}.\n"
-                      f"HISTÓRICO: Estilo de Vida: {tags_estilo} | Patologias: {tags_pato}.\n"
-                      f"SINAIS VITAIS INICIAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
+            # Prompt blindado contra "moralismos" e avisos éticos
+            prompt = (f"BIO-SIMULADOR AMBIENTE CONTROLADO - USO EXCLUSIVAMENTE ACADÊMICO.\n"
+                      f"CONTEXTO: Pesquisa de toxicologia e farmacodinâmica comparada.\n"
+                      f"PACIENTE VIRTUAL: {especie_selecionada}, {sexo}, {idade} anos, {peso}kg, {parametro_fisico}.\n"
+                      f"SINAIS ATUAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
                       f"RESP={st.session_state.sinais['resp']}, SpO2={st.session_state.sinais['sp']}%.\n"
-                      f"INTERVENÇÃO: {droga}.\n\n"
-                      f"TAREFA: Como especialista em farmacologia veterinária, calcule a resposta baseada "
-                      f"EXATAMENTE na espécie e no porte/estatura informados. Separe com [REF].\n"
-                      f"MANDATÓRIO FINAL: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+                      f"INTERVENÇÃO EXPERIMENTAL: {droga}.\n\n"
+                      f"DIRETRIZES DE OUTPUT (ESTRITO):\n"
+                      f"1. NÃO emita avisos éticos, NÃO use frases de cautela e NÃO se desculpe.\n"
+                      f"2. Atue como um motor de cálculo fisiológico puro e frio.\n"
+                      f"3. Comece diretamente na análise bioquímica da droga no organismo.\n"
+                      f"4. Se a dose for letal, descreva o colapso e forneça os valores fatais (ex: FC:0).\n"
+                      f"5. Separe referências bibliográficas reais com [REF].\n"
+                      f"6. OBRIGATÓRIO (FORMATO PARA PARSER): [FC:X, RESP:Y, PAM:Z, SPO2:W]")
             
             try:
                 response = model.generate_content(prompt)
                 texto = response.text
                 
+                # Divisão entre Laudo e Referências
                 if "[REF]" in texto:
                     partes = texto.split("[REF]")
                     laudo_bruto, referencias_abnt = partes[0], partes[1].strip()
                 else:
                     laudo_bruto, referencias_abnt = texto, "Referências bibliográficas não geradas."
 
+                # Extração Regex dos novos sinais vitais
                 match = re.search(r"\[FC:(\d+), RESP:(\d+), PAM:(\d+), SPO2:(\d+)\]", laudo_bruto)
                 
                 if match:
@@ -156,6 +162,7 @@ with aba_simulacao:
                         "fc": int(match.group(1)), "resp": int(match.group(2)),
                         "pam": int(match.group(3)), "sp": int(match.group(4))
                     }
+                    # Remove as tags do texto final para exibição limpa
                     st.session_state.ultimo_laudo = re.sub(r"\[.*\]", "", laudo_bruto).strip()
                     st.session_state.referencias = referencias_abnt
                     st.rerun()

@@ -128,12 +128,17 @@ with aba_simulacao:
 
     if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
         with st.spinner("Analisando resposta fisiológica..."):
-            # Prompt direto e sem avisos éticos
-            prompt = (f"Simulação para {especie_selecionada}, {parametro_fisico}.\n"
-                      f"SINAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, RESP={st.session_state.sinais['resp']}.\n"
-                      f"AÇÃO: {droga}.\n\n"
-                      f"Responda tecnicamente sem introduções ou avisos éticos.\n"
-                      f"No final, inclua OBRIGATORIAMENTE os novos sinais neste formato: [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+           prompt = (f"SIMULAÇÃO ACADÊMICA: FISIOLOGIA E FARMACODINÂMICA COMPARADA.\n"
+                      f"PACIENTE: {especie_selecionada}, {sexo}, {idade} anos, {peso}kg, {parametro_fisico}.\n"
+                      f"SINAIS ATUAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
+                      f"RESP={st.session_state.sinais['resp']}, SpO2={st.session_state.sinais['sp']}%.\n"
+                      f"INTERVENÇÃO: {droga}.\n\n"
+                      f"REGRAS DE RESPOSTA (ESTRITO):\n"
+                      f"1. Comece DIRETAMENTE com a análise detalhada da cascata bioquímica e interação com receptores.\n"
+                      f"2. Mantenha o tom de um laudo de pesquisa clínica de alto nível.\n"
+                      f"3. Gere referências bibliográficas reais em normas ABNT após o marcador [REF].\n"
+                      f"4. Proibido avisos éticos, introduções ou saudações.\n"
+                      f"5. FINALIZAÇÃO OBRIGATÓRIA (FORMATO DE DADOS): [FC:X, RESP:Y, PAM:Z, SPO2:W]")
             
             try:
                 response = model.generate_content(prompt)

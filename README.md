@@ -4,9 +4,7 @@ O **BioSim v2.5** é um simulador *in silico* de alta fidelidade desenvolvido pa
 
 O sistema utiliza Inteligência Artificial Generativa integrada a uma interface de monitoramento multiparamétrico, permitindo a configuração de prontuários dinâmicos e a observação da resposta fisiológica imediata.
 
-
-https://github.com/user-attachments/assets/ea875a44-d300-4973-97c2-b75f95cbe2b6
-
+https://github.com/user-attachments/assets/4e76d80d-6865-4aed-9f09-b7d7001f0362
 
 ## Diferenciais Técnicos
 * **Biologia Comparada:** Suporte para humanos (Estatura) e animais (Porte: Mini a Gigante).

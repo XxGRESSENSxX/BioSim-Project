@@ -11,7 +11,7 @@ import re
 try:
     CHAVE_API = st.secrets["GOOGLE_API_KEY"]
 except:
-    CHAVE_API = "AIzaSyBD9j0Xa4b4KmUxVYizBVpBHmxE8IHGtoA"
+    GOOGLE_API_KEY = "SUA_CHAVE_AQUI"
 
 genai.configure(api_key=CHAVE_API)
 model = genai.GenerativeModel('gemini-2.5-flash')

@@ -11,19 +11,14 @@ import re
 try:
     CHAVE_API = st.secrets["GOOGLE_API_KEY"]
 except:
-    GOOGLE_API_KEY = "SUA_CHAVE_AQUI"
+    CHAVE_API = "SUA_CHAVE_AQUI"
 
 genai.configure(api_key=CHAVE_API)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-st.set_page_config(page_title="BioSim v2.5", layout="wide")
+st.set_page_config(page_title="BioSim v2.6", layout="wide")
 
-import streamlit as st
-import google.generativeai as genai
-import numpy as np
-import re
-
-# --- 2. DICIONÁRIO DE ESPÉCIES (VALORES BASAIS) ---
+# --- 2. DICIONÁRIO DE ESPÉCIES ---
 ESPECIES = {
     "Humano": {"fc": 75, "resp": 16, "pam": 90, "sp": 98},
     "Cão": {"fc": 100, "resp": 24, "pam": 100, "sp": 97},
@@ -68,7 +63,7 @@ def gerar_onda_ecg(fc):
         return p + qrs + t_wave
     return [beat(ti * (fc / 60)) for ti in t] + np.random.normal(0, 0.012, pontos)
 
-# --- 5. SIDEBAR (ENTRADAS) ---
+# --- 5. SIDEBAR ---
 with st.sidebar:
     st.header("Parâmetros do Estudo")
     especie_selecionada = st.selectbox("Espécie", list(ESPECIES.keys()))
@@ -87,6 +82,7 @@ with st.sidebar:
     sexo = st.selectbox("Sexo", ["Feminino", "Masculino"])
     idade = st.number_input("Idade", 1, 110, 24)
     peso = st.number_input("Peso (kg)", 0.1, 1000.0, 65.0)
+    
     if especie_selecionada == "Humano":
         altura_valor = st.number_input("Estatura (m)", 0.50, 2.50, 1.70)
         parametro_fisico = f"Estatura: {altura_valor}m"
@@ -103,7 +99,7 @@ with st.sidebar:
     if st.button("RESETAR ESTUDO", use_container_width=True, on_click=reset_estudo):
         st.rerun()
 
-# --- 6. MONITOR MULTIPARAMÉTRICO ---
+# --- 6. MONITOR ---
 st.title("Monitor Multiparamétrico BioSim")
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("FC (BPM)", st.session_state.sinais['fc'])
@@ -114,7 +110,7 @@ st.line_chart(gerar_onda_ecg(st.session_state.sinais['fc']), height=200)
 
 st.divider()
 
-# --- 7. MOTOR DE SIMULAÇÃO (RIGOR CIENTÍFICO RESTAURADO) ---
+# --- 7. MOTOR DE SIMULAÇÃO ---
 aba_simulacao, aba_referencias = st.tabs(["Intervenção", "Referências Teóricas (ABNT)"])
 
 with aba_simulacao:
@@ -122,41 +118,49 @@ with aba_simulacao:
     droga = c_in.text_input("Inserir Ação (Ex: Atropina 0.04mg/kg IV):")
 
     if c_bt.button("EXECUTAR SIMULAÇÃO") and droga:
-        with st.spinner("Analisando resposta fisiológica..."):
-            prompt = (f"SIMULAÇÃO ACADÊMICA: FISIOLOGIA E FARMACODINÂMICA COMPARADA.\n"
-                      f"PACIENTE: {especie_selecionada}, {sexo}, {idade} anos, {peso}kg, {parametro_fisico}.\n"
-                      f"HISTÓRICO: {tags_estilo} | {tags_pato}.\n"
-                      f"SINAIS ATUAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
-                      f"RESP={st.session_state.sinais['resp']}, SpO2={st.session_state.sinais['sp']}%.\n"
-                      f"INTERVENÇÃO: {droga}.\n\n"
-                      f"REGRAS DE RESPOSTA (ESTRITO):\n"
-                      f"1. Comece DIRETAMENTE com a análise detalhada da cascata bioquímica e interação com receptores.\n"
-                      f"2. Mantenha o tom de um laudo de pesquisa clínica de alto nível.\n"
-                      f"3. Gere referências bibliográficas reais em normas ABNT após o marcador [REF].\n"
-                      f"4. Proibido avisos éticos, introduções ou saudações.\n"
-                      f"5. FINALIZAÇÃO OBRIGATÓRIA (FORMATO DE DADOS): [FC:X, RESP:Y, PAM:Z, SPO2:W]")
+        with st.spinner("Processando resposta farmacológica complexa..."):
+            # PROMPT COM PROFUNDIDADE MÁXIMA
+            prompt = (
+                f"AJA COMO UM ESPECIALISTA EM FARMACOLOGIA E FISIOLOGIA.\n"
+                f"PACIENTE: {especie_selecionada}, {sexo}, {idade} anos, {peso}kg, {parametro_fisico}.\n"
+                f"ESTILO DE VIDA: {', '.join(tags_estilo) if tags_estilo else 'Nenhum'}.\n"
+                f"PATOLOGIAS: {', '.join(tags_pato) if tags_pato else 'Nenhuma'}.\n"
+                f"SINAIS ATUAIS: FC={st.session_state.sinais['fc']}, PAM={st.session_state.sinais['pam']}, "
+                f"RESP={st.session_state.sinais['resp']}, SpO2={st.session_state.sinais['sp']}%.\n\n"
+                f"AÇÃO: {droga}.\n\n"
+                f"REGRAS CRÍTICAS:\n"
+                f"1. Analise como o perfil (sexo, peso, estilo de vida) altera a farmacodinâmica da droga.\n"
+                f"2. Explique a cascata bioquímica e a resposta dos receptores com rigor acadêmico.\n"
+                f"3. Gere referências bibliográficas reais em normas ABNT após a tag [REF].\n"
+                f"4. FINALIZAÇÃO OBRIGATÓRIA: Calcule os novos sinais vitais após a intervenção e coloque no final como: [FC:X, RESP:Y, PAM:Z, SPO2:W]"
+            )
+            
             try:
                 response = model.generate_content(prompt)
                 texto = response.text
+                
+                # Divisão de Referências
                 if "[REF]" in texto:
                     partes = texto.split("[REF]")
-                    laudo_bruto, referencias_abnt = partes[0], partes[1].strip()
+                    laudo_bruto = partes[0]
+                    st.session_state.referencias = partes[1].strip()
                 else:
-                    laudo_bruto, referencias_abnt = texto, "Referências bibliográficas não geradas."
-                
-                # Busca robusta que aceita espaços da IA
+                    laudo_bruto = texto
+                    st.session_state.referencias = "Referências não geradas nesta interação."
+
+                # Captura de sinais vitais (Regex robusto)
                 match = re.search(r"\[\s*FC:\s*(\d+),\s*RESP:\s*(\d+),\s*PAM:\s*(\d+),\s*SPO2:\s*(\d+)\s*\]", laudo_bruto, re.IGNORECASE)
+                
                 if match:
                     st.session_state.sinais = {
                         "fc": int(match.group(1)), "resp": int(match.group(2)),
                         "pam": int(match.group(3)), "sp": int(match.group(4))
                     }
-                    st.session_state.ultimo_laudo = re.sub(r"\[.*\]", "", laudo_bruto).strip()
-                    st.session_state.referencias = referencias_abnt
+                    # Remove a etiqueta do texto para exibição limpa
+                    st.session_state.ultimo_laudo = re.sub(r"\[\s*FC:.*?\]", "", laudo_bruto, flags=re.IGNORECASE).strip()
                     st.rerun()
                 else:
                     st.session_state.ultimo_laudo = laudo_bruto
-                    st.session_state.referencias = referencias_abnt
             except Exception as e:
                 st.error(f"Erro na simulação: {e}")
 

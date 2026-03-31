@@ -1,4 +1,4 @@
-#BioSim v2.5 - Simulador Biomédico Multiespécie
+BioSim v2.5 - Simulador Biomédico Multiespécie
 
 O **BioSim v2.5** é um simulador *in silico* de alta fidelidade desenvolvido para a análise de interações farmacológicas em cenários clínicos humanos e veterinários. 
 

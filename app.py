@@ -1,13 +1,17 @@
+# Projeto: BioSim v2.5
+# Desenvolvido por: Gabriela Paula Brizola Gressens Brandão
+# Objetivo: Simulação Biomédica Comparada (Humano/Vet)
+
 import streamlit as st
 import google.generativeai as genai
 import numpy as np
 import re
 
-# --- 1. CONFIGURAÇÃO SEGURA ---
+# --- 1. CONFIGURAÇÃO DE SEGURANÇA ---
 try:
     CHAVE_API = st.secrets["GOOGLE_API_KEY"]
 except:
-    CHAVE_API = "Coloque sua chave API aqui"
+    CHAVE_API = "AIzaSyBD9j0Xa4b4KmUxVYizBVpBHmxE8IHGtoA"
 
 genai.configure(api_key=CHAVE_API)
 model = genai.GenerativeModel('gemini-2.5-flash')
